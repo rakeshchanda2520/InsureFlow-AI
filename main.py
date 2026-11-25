@@ -141,21 +141,24 @@ def evaluate() -> None:
     flush()
 
 
+def _documents(text: str) -> list[str]:
+    return DOCS_ALL if text.lower() == "all" else text.split(",")
+
+
 def new_claim() -> None:
     print(f"\nKnown parts: {', '.join(PARTS)}")
-    parts = ask("Damaged parts (comma separated)")
-    docs = ask(f"Documents received (comma separated, or 'all' for {len(DOCS_ALL)} standard ones)", "all")
     try:
         req = ClaimRequest(
             customer_id=ask("Customer ID", "CUST1001"), policy_id=ask("Policy ID", "MOT2026001"),
             incident_type=ask("Incident type (accident/theft/fire/flood/vandalism)", "accident"),
             incident_date=ask("Incident date (YYYY-MM-DD)"), reported_date=ask("Reported date", str(date.today())),
             location=ask("Location"), description=ask("What happened"),
-            estimated_damage=ask("Estimated damage in rupees"), damaged_parts=parts.split(","),
+            estimated_damage=ask("Estimated damage in rupees"),
+            damaged_parts=ask("Damaged parts (comma separated, blank for none)").split(","),
             third_party_involved=ask("Third party involved? (y/n)", "n").lower() == "y",
             alcohol_involved=ask("Alcohol involved? (y/n)", "n").lower() == "y",
             driver_licence_valid=ask("Driver had a valid licence? (y/n)", "y").lower() == "y",
-            documents=DOCS_ALL if docs.lower() == "all" else docs.split(","),
+            documents=_documents(ask(f"Documents received (comma separated, or 'all' for the {len(DOCS_ALL)} standard ones)", "all")),
         )
     except ValidationError as exc:
         print("\nThat claim is not valid:")

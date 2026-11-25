@@ -13,6 +13,8 @@ main.py (CLI) ──► supervisor.py ──► Supervisor ─┬─► claim_ag
                                        human reviewer ◄──┘   (approve / reject / investigate)
 ```
 
+**Step-by-step running and testing, with ready-made test claims: see [RUN.md](RUN.md).**
+
 ## Set up on any laptop
 
 The dummy data is in git (`data/*.csv`). The SQLite database is built from it, so every laptop gets the same data.
