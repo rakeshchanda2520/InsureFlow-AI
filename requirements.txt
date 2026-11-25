@@ -1,0 +1,8 @@
+# Andromeda itself is installed from its own repository (pip install -e path/to/andromeda)
+# or made importable with PYTHONPATH; its own dependencies come with it.
+sqlalchemy>=2.0
+pydantic>=2.0
+faker
+python-dotenv
+langchain-openai
+# optional tracing: pip install "andromeda[ops]" and set the LANGFUSE_* values in .env
