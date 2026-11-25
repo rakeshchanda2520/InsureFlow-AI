@@ -1,0 +1,184 @@
+[
+  {
+    "title": "Clean accident claim",
+    "expected": "APPROVE",
+    "claim": {
+      "customer_id": "CUST1001",
+      "policy_id": "MOT2026001",
+      "incident_type": "accident",
+      "incident_date": "2026-11-20",
+      "reported_date": "2026-11-22",
+      "location": "Baner Road, Pune",
+      "estimated_damage": 80000,
+      "description": "Hit a stationary divider while avoiding a stray dog; front bumper, bonnet and headlight damaged.",
+      "damaged_parts": [
+        "front bumper",
+        "bonnet",
+        "headlight"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Duplicate of an already settled claim",
+    "expected": "INVESTIGATE",
+    "claim": {
+      "customer_id": "CUST1002",
+      "policy_id": "MOT2026002",
+      "incident_type": "accident",
+      "incident_date": "2026-11-12",
+      "reported_date": "2026-11-14",
+      "location": "Outer Ring Road, Bengaluru",
+      "estimated_damage": 15500,
+      "description": "Collided with an auto-rickshaw at a junction; front bumper cracked.",
+      "damaged_parts": [
+        "front bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Lapsed policy",
+    "expected": "REJECT",
+    "claim": {
+      "customer_id": "CUST1003",
+      "policy_id": "MOT2026003",
+      "incident_type": "accident",
+      "incident_date": "2026-11-18",
+      "reported_date": "2026-11-19",
+      "location": "Ring Road, Delhi",
+      "estimated_damage": 46000,
+      "description": "Side-swiped by a truck; left front door and side mirror damaged.",
+      "damaged_parts": [
+        "front door",
+        "side mirror"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Third-party-only policy (own damage not covered)",
+    "expected": "REJECT",
+    "claim": {
+      "customer_id": "CUST1004",
+      "policy_id": "MOT2026004",
+      "incident_type": "accident",
+      "incident_date": "2026-11-17",
+      "reported_date": "2026-11-18",
+      "location": "Western Express Highway, Mumbai",
+      "estimated_damage": 31000,
+      "description": "Reversed into a pillar in a parking lot; rear bumper and tail lamp damaged.",
+      "damaged_parts": [
+        "rear bumper",
+        "tail lamp"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Frequent claimant, reported late",
+    "expected": "INVESTIGATE",
+    "claim": {
+      "customer_id": "CUST1005",
+      "policy_id": "MOT2026005",
+      "incident_type": "accident",
+      "incident_date": "2026-11-16",
+      "reported_date": "2026-11-25",
+      "location": "SG Highway, Ahmedabad",
+      "estimated_damage": 34000,
+      "description": "Rear bumper and tail lamp damaged in a parking-lot collision.",
+      "damaged_parts": [
+        "rear bumper",
+        "tail lamp"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Documents missing, policy only 15 days old",
+    "expected": "INVESTIGATE",
+    "claim": {
+      "customer_id": "CUST1006",
+      "policy_id": "MOT2026006",
+      "incident_type": "accident",
+      "incident_date": "2026-11-20",
+      "reported_date": "2026-11-21",
+      "location": "Anna Salai, Chennai",
+      "estimated_damage": 58000,
+      "third_party_involved": true,
+      "description": "Hit by a two-wheeler while changing lanes; rear door and bumper damaged.",
+      "damaged_parts": [
+        "rear door",
+        "rear bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "policy_copy",
+        "photos"
+      ]
+    }
+  },
+  {
+    "title": "Drunk-driving exclusion",
+    "expected": "REJECT",
+    "claim": {
+      "customer_id": "CUST1007",
+      "policy_id": "MOT2026007",
+      "incident_type": "accident",
+      "incident_date": "2026-11-19",
+      "reported_date": "2026-11-20",
+      "location": "Jubilee Hills, Hyderabad",
+      "estimated_damage": 36000,
+      "alcohol_involved": true,
+      "description": "Lost control after a night out and hit a tree; bonnet and radiator damaged.",
+      "damaged_parts": [
+        "bonnet",
+        "radiator"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  }
+]

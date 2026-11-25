@@ -2,7 +2,8 @@
 
     python main.py              interactive menu
     python main.py --demo 3     run demo claim 3, then ask for the reviewer's decision
-    python main.py --reset      rebuild the SQLite database with fresh dummy data
+    python main.py --eval       run every demo claim and check each recommendation (resets the data first)
+    python main.py --reset      rebuild the SQLite database from data/*.csv
 """
 import argparse
 import sys
@@ -14,8 +15,9 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from agents.assessment_agent import PARTS
-from database import DEMO_CLAIMS, DOCS_ALL, Claim, Customer, claim_bundle, get_findings, init_db, session
-from schemas import ClaimRequest
+from database import Claim, Customer, claim_bundle, demo_claims, get_findings, init_db, session
+from observability import flush, score_trace
+from schemas import DOCS_ALL, ClaimRequest
 from supervisor import finalize_claim, process_claim
 
 sys.stdout.reconfigure(encoding="utf-8")  # so the rupee sign prints on Windows consoles
@@ -86,35 +88,57 @@ def review(claim_id: str) -> None:
     print(f"\nClaim {REVIEW[choice]}. Notification sent to the customer:\n  {notification}")
 
 
-def run(req: ClaimRequest) -> None:
+def run(req: ClaimRequest, source: str = "manual") -> None:
     print("\nAgents are working on the claim (this takes a minute)...")
     try:
-        result = process_claim(req)
+        result = process_claim(req, source)
     except Exception as exc:  # most often a missing OPENAI_API_KEY or an unreachable model
         print(f"[error] {type(exc).__name__}: {exc}")
         return
     if result.claim_id is None:
         print(f"\nClaim not processed ({result.status}): {result.summary}")
-        return
-    show_report(result.claim_id)
-    if result.status != "PENDING_REVIEW":
-        print(f"\nThe agents did not finish (status {result.status}). Supervisor said: {result.summary}")
-        return
-    review(result.claim_id)
+    else:
+        show_report(result.claim_id)
+        if result.status == "PENDING_REVIEW":
+            review(result.claim_id)
+        else:
+            print(f"\nThe agents did not finish (status {result.status}). Supervisor said: {result.summary}")
+    flush()
 
 
 def choose_demo(number: int | None = None) -> None:
+    demos = demo_claims()
     if number is None:
         print()
-        for n, (title, expected, _) in enumerate(DEMO_CLAIMS, 1):
-            print(f"  {n}) {title}  (expect {expected})")
+        for n, demo in enumerate(demos, 1):
+            print(f"  {n}) {demo['title']}  (expect {demo['expected']})")
         number = int(ask("Demo number") or 0)
-    if not 1 <= number <= len(DEMO_CLAIMS):
+    if not 1 <= number <= len(demos):
         print("No such demo.")
         return
-    title, _, fields = DEMO_CLAIMS[number - 1]
-    print(f"\nDemo: {title}\n  {fields['description']}")
-    run(ClaimRequest(**fields))
+    demo = demos[number - 1]
+    print(f"\nDemo: {demo['title']}\n  {demo['claim']['description']}")
+    run(ClaimRequest(**demo["claim"]), source="demo")
+
+
+def evaluate() -> None:
+    """Run every demo claim with no human step and check each recommendation against the expected one."""
+    init_db(reset=True)
+    demos = demo_claims()
+    passed = 0
+    print(f"\n{'#':3}{'SCENARIO':50}{'EXPECTED':13}{'GOT':13}RESULT")
+    for n, demo in enumerate(demos, 1):
+        try:
+            result = process_claim(ClaimRequest(**demo["claim"]), source="eval")
+        except Exception as exc:
+            print(f"{n:<3}{demo['title'][:48]:50}{demo['expected']:13}{'error':13}FAIL  {type(exc).__name__}: {exc}")
+            continue
+        ok = result.recommendation == demo["expected"]
+        passed += ok
+        score_trace(result.submission_id, "scenario_correct", ok, f"expected {demo['expected']}, got {result.recommendation}")
+        print(f"{n:<3}{demo['title'][:48]:50}{demo['expected']:13}{str(result.recommendation):13}{'PASS' if ok else 'FAIL'}")
+    print(f"\n{passed}/{len(demos)} scenarios passed")
+    flush()
 
 
 def new_claim() -> None:
@@ -153,16 +177,17 @@ def list_claims() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="InsureFlow AI")
     parser.add_argument("--demo", type=int, help="run demo claim N")
-    parser.add_argument("--reset", action="store_true", help="rebuild the database with fresh dummy data")
+    parser.add_argument("--eval", action="store_true", help="run every demo claim and check the recommendations")
+    parser.add_argument("--reset", action="store_true", help="rebuild the database from data/*.csv")
     args = parser.parse_args()
 
     init_db(reset=args.reset)
+    if args.eval:
+        return evaluate()
     if args.reset:
-        print("Database reset.")
+        return print("Database reset.")
     if args.demo:
         return choose_demo(args.demo)
-    if args.reset:
-        return
 
     print(MENU)
     while (choice := ask("Choose").lower()) not in {"q", "quit", "exit"}:

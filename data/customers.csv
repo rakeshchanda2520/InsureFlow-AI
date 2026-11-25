@@ -1,0 +1,13 @@
+customer_id,name,phone,email,city,kyc_verified
+CUST1001,Arjun Mehta,1518844729,arjun.mehta@example.in,Pune,true
+CUST1002,Priya Nair,00557616987,priya.nair@example.in,Bengaluru,true
+CUST1003,Vikram Singh,+916897684697,vikram.singh@example.in,Delhi,true
+CUST1004,Sneha Kulkarni,8093208196,sneha.kulkarni@example.in,Mumbai,true
+CUST1005,Rohan Desai,02731778486,rohan.desai@example.in,Ahmedabad,true
+CUST1006,Ananya Iyer,4887663440,ananya.iyer@example.in,Chennai,true
+CUST1007,Kavita Reddy,+912978753477,kavita.reddy@example.in,Hyderabad,true
+CUST1008,Ekaja Thakkar,7680457178,ekaja.thakkar@example.in,Rajahmundry,true
+CUST1009,Vritti Sastry,07267147513,vritti.sastry@example.in,Delhi,true
+CUST1010,Indrajit Mani,6270107981,indrajit.mani@example.in,Hospet,true
+CUST1011,Vritti Murthy,3319084520,vritti.murthy@example.in,Sikar,true
+CUST1012,Ijaya Parikh,09972837929,ijaya.parikh@example.in,Anand,true

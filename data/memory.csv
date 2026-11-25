@@ -1,0 +1,3 @@
+customer_id,claim_id,agent,note
+CUST1002,CLM-2026-0013,fraud_agent,Front-bumper claim settled; any new claim for that incident is a duplicate.
+CUST1005,CLM-2026-0012,fraud_agent,Four claims in under 12 months (one rejected). Check frequency and reporting delay on the next one.

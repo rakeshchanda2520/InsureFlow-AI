@@ -1,3 +1,4 @@
 .env
-data/
 __pycache__/
+# the database is rebuilt from data/*.csv on first run; the CSVs are the tracked data
+data/*.db

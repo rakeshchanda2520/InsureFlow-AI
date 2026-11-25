@@ -11,7 +11,8 @@ load_dotenv()
 from andromeda.config import ModelConfig  # noqa: E402
 
 ROOT = Path(__file__).parent
-DB_URL = f"sqlite:///{ROOT / 'data' / 'insureflow.db'}"
+DATA = ROOT / "data"
+DB_URL = f"sqlite:///{DATA / 'insureflow.db'}"
 
 MODEL = ModelConfig(name=os.getenv("INSUREFLOW_MODEL", "gpt-4o-mini"), provider="openai", temperature=0)
 

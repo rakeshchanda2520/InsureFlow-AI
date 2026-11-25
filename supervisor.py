@@ -10,6 +10,7 @@ from andromeda.core.supervisor import Supervisor
 from agents import assessment_agent, claim_agent, fraud_agent, policy_agent
 from database import (Customer, claim_bundle, claim_for_submission, get_findings, remember, save_finding, session,
                       stage_submission)
+from observability import OUTCOME, SUPERVISOR, event, observe, run_config, score_trace
 from schemas import ClaimRequest, ClaimResult
 
 BLOCKED = "This claim was blocked by the safety guardrails and needs manual handling."
@@ -37,6 +38,7 @@ first and follow it exactly. You hold no claim data yourself: every fact comes f
 
 The specialists unlock their own tools by loading their skills; you never call those tools."""
 
+
 def build_supervisor() -> Supervisor:
     """A fresh team per claim: agent memory is instance-level, so reusing one would leak a claim into the next."""
     skills = SkillsMiddleware(backend="filesystem", repo_root=ROOT, sources=["/skills/claim-orchestration"])
@@ -46,10 +48,10 @@ def build_supervisor() -> Supervisor:
         middleware=MiddlewareConfig(enabled=True, tool_error_handler=True, guardrails=GUARDRAILS, custom=[skills]),
     )
     agents = [claim_agent.build(), policy_agent.build(), fraud_agent.build(), assessment_agent.build()]
-    return Supervisor(agents=agents, config=config)
+    return observe(Supervisor(agents=agents, config=config), SUPERVISOR)
 
 
-def process_claim(req: ClaimRequest) -> ClaimResult:
+def process_claim(req: ClaimRequest, source: str = "manual") -> ClaimResult:
     """Run one submission through the supervisor. Ends with a recommendation awaiting a human."""
     submission_id = stage_submission(req)
     # The claimant's own words are included so the input guardrails scan them; the rest is staged in SQLite.
@@ -59,19 +61,24 @@ def process_claim(req: ClaimRequest) -> ClaimResult:
     # The plan is left empty on purpose: supervise() appends todo reminders as later human messages, and the
     # input guardrail only scans the latest one, so a seeded plan would hide the claimant's text from it.
     state = {"messages": [HumanMessage(content=request)], "plan": []}
-    reply = str(build_supervisor().supervise(state)["messages"][-1].content)
+    reply = str(build_supervisor().supervise(state, **run_config(req.customer_id, submission_id, source))["messages"][-1].content)
 
     claim_id = claim_for_submission(submission_id)
+    if reply == BLOCKED:
+        event("guardrail-blocked", submission_id, level="WARNING", claim_registered=claim_id is not None)
     if claim_id is None:
-        return ClaimResult(claim_id=None, status="BLOCKED" if reply == BLOCKED else "NOT_REGISTERED", summary=reply)
+        return ClaimResult(submission_id=submission_id, claim_id=None,
+                           status="BLOCKED" if reply == BLOCKED else "NOT_REGISTERED", summary=reply)
 
     with session() as s:
         claim, _, _ = claim_bundle(s, claim_id)
     # If the output guardrail replaced the reply, the recorded decision is still the source of truth.
+    if claim.status != "PENDING_REVIEW":
+        event("pipeline-incomplete", submission_id, level="ERROR", status=claim.status)
     decision = next((f for f in get_findings(claim_id) if f.name == "decision"), None)
     summary = decision.summary + " " + " ".join(decision.data["reasons"]) if reply == BLOCKED and decision else reply
-    return ClaimResult(claim_id=claim_id, status=claim.status, recommendation=claim.recommendation,
-                       payout=claim.payout, summary=summary)
+    return ClaimResult(submission_id=submission_id, claim_id=claim_id, status=claim.status,
+                       recommendation=claim.recommendation, payout=claim.payout, summary=summary)
 
 
 def finalize_claim(claim_id: str, decision: str, note: str = "") -> str:
@@ -99,4 +106,7 @@ def finalize_claim(claim_id: str, decision: str, note: str = "") -> str:
     save_finding(claim_id, "human_review", "review", "INFO", f"{decision} by the human reviewer. {note}".strip())
     remember(claim.customer_id, claim_id, "supervisor",
              f"{claim.incident_type.capitalize()} claim {decision.lower()}, payout {inr(claim.payout)}. {note}".strip())
+    agreed = OUTCOME.get(claim.recommendation) == decision
+    event("human-review", claim.submission_id, decision=decision, agents_said=claim.recommendation, agreed=agreed)
+    score_trace(claim.submission_id, "human_agreement", agreed, f"agents: {claim.recommendation}, reviewer: {decision}")
     return claim.notification

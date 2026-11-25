@@ -1,0 +1,13 @@
+part,material,parts_cost,labour,paint
+front bumper,plastic,9000,2500,3000
+rear bumper,plastic,8500,2500,3000
+bonnet,metal,14000,3500,4500
+front door,metal,16000,4000,4500
+rear door,metal,15000,4000,4500
+fender,metal,9500,3000,3500
+headlight,plastic,12000,1200,0
+tail lamp,plastic,6500,900,0
+side mirror,plastic,5500,600,0
+windshield,glass,15000,1800,0
+radiator,metal,11000,2000,0
+tyre,tyre,7500,500,0

@@ -1,0 +1,14 @@
+claim_id,customer_id,policy_id,incident_type,incident_date,reported_date,location,description,estimated_damage,damaged_parts,status,recommendation,payout
+CLM-2025-0001,CUST1001,MOT2026001,accident,2025-09-02,2025-09-02,On record,Windshield cracked by a stone on the expressway.,25000,windshield,APPROVED,APPROVED,24000
+CLM-2025-0002,CUST1010,MOT2026010,accident,2025-09-22,2025-09-22,On record,Minor collision; side mirror damaged.,43500,side mirror,APPROVED,APPROVED,32625
+CLM-2025-0003,CUST1010,MOT2026010,accident,2025-09-23,2025-09-23,On record,Minor collision; front door damaged.,51000,front door,APPROVED,APPROVED,38250
+CLM-2025-0004,CUST1008,MOT2026008,accident,2025-10-14,2025-10-14,On record,Minor collision; front door damaged.,53500,front door,APPROVED,APPROVED,40125
+CLM-2025-0005,CUST1011,MOT2026011,accident,2025-11-16,2025-11-16,On record,Minor collision; side mirror damaged.,40000,side mirror,REJECTED,REJECTED,0
+CLM-2025-0006,CUST1008,MOT2026008,accident,2025-11-17,2025-11-17,On record,Minor collision; rear bumper damaged.,11000,rear bumper,APPROVED,APPROVED,8250
+CLM-2025-0007,CUST1009,MOT2026009,accident,2025-12-04,2025-12-04,On record,Minor collision; rear bumper damaged.,22500,rear bumper,APPROVED,APPROVED,16875
+CLM-2025-0008,CUST1012,MOT2026012,accident,2025-12-09,2025-12-09,On record,Minor collision; tail lamp damaged.,26500,tail lamp,APPROVED,APPROVED,19875
+CLM-2026-0009,CUST1005,MOT2026005,accident,2026-01-30,2026-01-30,On record,Scraped a pillar in a basement car park; front bumper damaged.,22000,front bumper,APPROVED,APPROVED,16000
+CLM-2026-0010,CUST1005,MOT2026005,accident,2026-04-11,2026-04-11,On record,Door dented by a passing truck.,37000,front door,APPROVED,APPROVED,28000
+CLM-2026-0011,CUST1005,MOT2026005,accident,2026-07-05,2026-07-05,On record,Headlight broken; garage estimate could not be verified.,20000,headlight,REJECTED,REJECTED,0
+CLM-2026-0012,CUST1005,MOT2026005,accident,2026-09-19,2026-09-19,On record,Bonnet dented in a minor collision.,33000,bonnet,APPROVED,APPROVED,24500
+CLM-2026-0013,CUST1002,MOT2026002,accident,2026-11-12,2026-11-12,On record,Collided with an auto-rickshaw at a junction; front bumper cracked.,15000,front bumper,APPROVED,APPROVED,9000

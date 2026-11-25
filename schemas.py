@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 IncidentType = Literal["accident", "theft", "fire", "flood", "vandalism"]
+DOCS_ALL = ["claim_form", "rc_copy", "driving_licence", "policy_copy", "photos", "repair_estimate"]
 
 
 class ClaimRequest(BaseModel):
@@ -46,6 +47,7 @@ class ClaimRequest(BaseModel):
 class ClaimResult(BaseModel):
     """What process_claim hands back to the caller."""
 
+    submission_id: str
     claim_id: str | None
     status: str
     recommendation: str | None = None

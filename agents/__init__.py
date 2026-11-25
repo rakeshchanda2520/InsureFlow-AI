@@ -4,6 +4,8 @@ from andromeda.config import AgentConfig, MiddlewareConfig
 from andromeda.core import Agent
 from andromeda.core.middleware.skills import SkillsMiddleware
 
+from observability import SPECIALIST, observe
+
 
 def make_agent(name: str, role: str, skill: str) -> Agent:
     """A specialist whose tools are unlocked by its own skill.
@@ -13,7 +15,7 @@ def make_agent(name: str, role: str, skill: str) -> Agent:
     `allowed-tools` header is what grants them.
     """
     skills = SkillsMiddleware(backend="filesystem", repo_root=ROOT, sources=[f"/skills/{skill}"])
-    return Agent(
+    agent = Agent(
         AgentConfig(
             name=name,
             model=MODEL,
@@ -27,3 +29,4 @@ def make_agent(name: str, role: str, skill: str) -> Agent:
             recursion_limit=80,
         )
     )
+    return observe(agent, SPECIALIST)

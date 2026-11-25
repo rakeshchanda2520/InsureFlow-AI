@@ -2,7 +2,7 @@
 # or made importable with PYTHONPATH; its own dependencies come with it.
 sqlalchemy>=2.0
 pydantic>=2.0
-faker
 python-dotenv
 langchain-openai
-# optional tracing: pip install "andromeda[ops]" and set the LANGFUSE_* values in .env
+langfuse>=4,<5       # tracing and evaluation; see .env.example
+faker                # only for data_generator.py, which regenerates data/
