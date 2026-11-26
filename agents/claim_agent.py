@@ -12,26 +12,38 @@ from database import (Claim, Customer, Document, Policy, Submission, Vehicle, cl
 AGENT = "claim_agent"
 
 
+def _submitted(s, submission_id: str) -> dict:
+    """The claim as submitted. Lookups are limited to what it names, so one customer's claim can never read another's."""
+    sub = s.get(Submission, submission_id.strip())
+    if sub is None:
+        raise ValueError(f"Unknown submission_id {submission_id!r}")
+    return sub.payload
+
+
 @tool
 def search_customer(query: str) -> list[dict]:
-    """Find customers by name, phone number or vehicle registration. Returns up to 5 matches."""
+    """Suggest customers that match a name, phone number or vehicle registration. Names are shortened on purpose."""
+    if len(query.strip()) < 4:
+        raise ValueError("Give at least 4 characters to search.")
     like = f"%{query.strip()}%"
     with session() as s:
         rows = s.execute(
-            select(Customer, Vehicle).join(Vehicle, Vehicle.customer_id == Customer.customer_id)
-            .where(or_(Customer.name.ilike(like), Customer.phone.ilike(like), Vehicle.registration_no.ilike(like))).limit(5)
-        ).all()
-    return [{"customer_id": c.customer_id, "name": c.name, "city": c.city,
-             "vehicle": f"{v.make} {v.model} {v.registration_no}"} for c, v in rows]
+            select(Customer).join(Vehicle, Vehicle.customer_id == Customer.customer_id)
+            .where(or_(Customer.name.ilike(like), Customer.phone.ilike(like), Vehicle.registration_no.ilike(like))).limit(3)
+        ).scalars()
+        return [{"customer_id": c.customer_id, "name": f"{c.name.split()[0]} {c.name.split()[-1][0]}.", "city": c.city} for c in rows]
 
 
 @tool
-def get_customer(customer_id: str) -> dict:
-    """Get a customer's profile, vehicles, policies and notes remembered from their earlier claims."""
+def get_customer(customer_id: str, submission_id: str) -> dict:
+    """Get the profile, vehicles, policies and remembered notes of the customer who made this submission."""
     with session() as s:
-        customer = s.get(Customer, customer_id.strip().upper())
+        submitted = _submitted(s, submission_id)
+        if customer_id.strip().upper() != submitted["customer_id"]:
+            raise ValueError("You may only look up the customer who made this submission.")
+        customer = s.get(Customer, submitted["customer_id"])
         if customer is None:
-            raise ValueError(f"Customer {customer_id!r} not found. Try search_customer.")
+            raise ValueError(f"Customer {customer_id!r} not found.")
         vehicles = list(s.scalars(select(Vehicle).where(Vehicle.customer_id == customer.customer_id)))
         policies = list(s.scalars(select(Policy).where(Policy.customer_id == customer.customer_id)))
     return {
@@ -44,10 +56,13 @@ def get_customer(customer_id: str) -> dict:
 
 
 @tool
-def get_policy(policy_id: str) -> dict:
-    """Get a policy with its insured vehicle, period, status and add-ons."""
+def get_policy(policy_id: str, submission_id: str) -> dict:
+    """Get the policy named in this submission, with its insured vehicle, period, status and add-ons."""
     with session() as s:
-        policy = s.get(Policy, policy_id.strip().upper())
+        submitted = _submitted(s, submission_id)
+        if policy_id.strip().upper() != submitted["policy_id"]:
+            raise ValueError("You may only look up the policy named in this submission.")
+        policy = s.get(Policy, submitted["policy_id"])
         if policy is None:
             raise ValueError(f"Policy {policy_id!r} not found.")
         vehicle = s.get(Vehicle, policy.vehicle_id)
@@ -63,13 +78,11 @@ def get_policy(policy_id: str) -> dict:
 def create_claim(submission_id: str) -> dict:
     """Register the submitted claim in the claims system and return its new claim_id. Safe to call twice."""
     with session() as s:
+        p = _submitted(s, submission_id)
         sub = s.get(Submission, submission_id.strip())
-        if sub is None:
-            raise ValueError(f"Unknown submission_id {submission_id!r}")
         if sub.claim_id:
             return {"claim_id": sub.claim_id, "note": "already registered"}
 
-        p = sub.payload
         if s.get(Customer, p["customer_id"]) is None:
             raise ValueError(f"Customer {p['customer_id']} does not exist; the claim cannot be registered.")
         if s.get(Policy, p["policy_id"]) is None:
@@ -95,13 +108,15 @@ def create_claim(submission_id: str) -> dict:
 
 @tool
 def update_claim(claim_id: str, field: str, value: str) -> dict:
-    """Correct a claim detail. field must be one of: description, location, estimated_damage."""
-    if field not in ("description", "location", "estimated_damage"):
-        raise ValueError("field must be one of: description, location, estimated_damage")
+    """Correct a typo in a claim's description or location. field must be 'description' or 'location'."""
+    if field not in ("description", "location"):
+        raise ValueError("Only description and location can be corrected. The claimed amount and the decision are off limits.")
     with session() as s:
         claim, _, _ = claim_bundle(s, claim_id)
-        setattr(claim, field, float(value) if field == "estimated_damage" else value)
+        before = getattr(claim, field)
+        setattr(claim, field, value)
         s.commit()
+    save_finding(claim.claim_id, AGENT, f"correction_{field}", "WARN", f"{field} changed by the agent: {before!r} -> {value!r}")
     return {"claim_id": claim.claim_id, "updated": field}
 
 

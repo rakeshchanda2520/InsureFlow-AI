@@ -1,10 +1,11 @@
 from config import MODEL, ROOT  # first: loads .env before Andromeda is imported
 
-from andromeda.config import AgentConfig, MiddlewareConfig
+from andromeda.config import AgentConfig
 from andromeda.core import Agent
 from andromeda.core.middleware.skills import SkillsMiddleware
 
 from observability import SPECIALIST, observe
+from security import SPECIALIST_RULES, specialist_middleware
 
 
 def make_agent(name: str, role: str, skill: str) -> Agent:
@@ -23,9 +24,10 @@ def make_agent(name: str, role: str, skill: str) -> Agent:
                 f"{role}\n"
                 f"Before anything else call load_skill('{skill}') and follow it exactly.\n"
                 "Use only facts returned by your tools; never invent ids, dates or amounts.\n"
-                "Finish with a short factual summary of what you found (max 100 words)."
+                "Finish with a short factual summary of what you found (max 100 words).\n"
+                f"{SPECIALIST_RULES}"
             ),
-            middleware=MiddlewareConfig(enabled=True, tool_error_handler=True, custom=[skills]),
+            middleware=specialist_middleware(skills),
             recursion_limit=80,
         )
     )

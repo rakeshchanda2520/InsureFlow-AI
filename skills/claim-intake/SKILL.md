@@ -10,14 +10,15 @@ allowed-tools: search_customer get_customer get_policy create_claim update_claim
 
 You are given a submission id, a customer id and a policy id.
 
-1. Call `get_customer(customer_id)`. If it is not found, try `search_customer` with any name, phone
-   number or registration you were given. If the customer still cannot be found, **stop**: do not
-   register anything and report that the customer is unknown.
-2. Call `get_policy(policy_id)`. If the policy does not exist, **stop** and report it.
+1. Call `get_customer(customer_id, submission_id)`. You can only look up the customer named in the
+   submission. If they are not found, **stop**: register nothing and report the customer as unknown. You
+   may call `search_customer` to suggest likely matches in your reply, but never register using one.
+2. Call `get_policy(policy_id, submission_id)`. If the policy does not exist, **stop** and report it.
 3. Read the customer's `memory` notes. They record earlier settled claims and fraud flags and matter
    to the agents after you.
 4. Call `create_claim(submission_id)`. This returns the `claim_id`. Never invent or guess a claim id.
-5. If the claim needs a correction (a typo in the location, for example), use `update_claim`.
+5. If the claim has a typo in its description or location, correct it with `update_claim`. You can never
+   change the claimed amount.
 
 Reply with: the `claim_id`, the `customer_id`, the customer's name, the vehicle, the policy type and
 status, and any memory notes word for word.

@@ -16,6 +16,8 @@ DB_URL = f"sqlite:///{DATA / 'insureflow.db'}"
 
 MODEL = ModelConfig(name=os.getenv("INSUREFLOW_MODEL", "gpt-4o-mini"), provider="openai", temperature=0)
 
+LATENCY_BUDGET_S = float(os.getenv("INSUREFLOW_LATENCY_BUDGET_S", "180"))  # per claim, end to end
+
 DUPLICATE_WINDOW_DAYS = 3  # same vehicle, incident dates this close together = suspected duplicate
 FREQUENCY_WINDOW_DAYS = 365
 FREQUENCY_LIMIT = 3  # prior claims in the window at which frequency is flagged

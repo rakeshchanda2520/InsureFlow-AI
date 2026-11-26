@@ -9,7 +9,7 @@ import uuid
 from contextlib import contextmanager
 from datetime import date, datetime
 
-from sqlalchemy import JSON, create_engine, delete, func, select
+from sqlalchemy import JSON, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from config import DATA, DB_URL
@@ -125,6 +125,8 @@ class Submission(Base):
     submission_id: Mapped[str] = mapped_column(primary_key=True)
     payload: Mapped[dict] = mapped_column(JSON)
     claim_id: Mapped[str | None]
+    outcome: Mapped[str | None]  # BLOCKED, NOT_REGISTERED, or the claim's status once it was processed
+    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
 
 @contextmanager
@@ -148,16 +150,17 @@ def next_claim_id(s: Session) -> str:
 
 
 def save_finding(claim_id: str, agent: str, name: str, status: str, summary: str, data: dict | None = None):
-    """Record a check. Re-running a check replaces its earlier result."""
+    """Record a check. Findings are append-only: re-running a check adds a result, it never erases the earlier one."""
     with session() as s:
-        s.execute(delete(Finding).where(Finding.claim_id == claim_id, Finding.name == name))
         s.add(Finding(claim_id=claim_id, agent=agent, name=name, status=status, summary=summary, data=data or {}))
         s.commit()
 
 
-def get_findings(claim_id: str) -> list[Finding]:
+def get_findings(claim_id: str, history: bool = False) -> list[Finding]:
+    """The latest result of each check, in the order the checks first ran. history=True returns every result ever recorded."""
     with session() as s:
-        return list(s.scalars(select(Finding).where(Finding.claim_id == claim_id).order_by(Finding.id)))
+        rows = list(s.scalars(select(Finding).where(Finding.claim_id == claim_id).order_by(Finding.id)))
+    return rows if history else list({f.name: f for f in rows}.values())
 
 
 def remember(customer_id: str, claim_id: str, agent: str, note: str) -> None:
@@ -184,6 +187,12 @@ def claim_for_submission(submission_id: str) -> str | None:
     with session() as s:
         sub = s.get(Submission, submission_id)
         return sub.claim_id if sub else None
+
+
+def set_outcome(submission_id: str, outcome: str) -> None:
+    with session() as s:
+        s.get(Submission, submission_id).outcome = outcome
+        s.commit()
 
 
 def _convert(column, text: str):
@@ -222,6 +231,6 @@ def init_db(reset: bool = False) -> None:
             s.commit()
 
 
-def demo_claims() -> list[dict]:
-    """Ready-made submissions with the recommendation each should produce: data/demo_claims.json."""
-    return json.loads((DATA / "demo_claims.json").read_text(encoding="utf-8"))
+def golden_claims() -> list[dict]:
+    """The golden dataset, data/golden_claims.json: submissions with the recommendation, payout and fraud level each must produce."""
+    return json.loads((DATA / "golden_claims.json").read_text(encoding="utf-8"))

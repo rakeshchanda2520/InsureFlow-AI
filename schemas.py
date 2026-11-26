@@ -16,8 +16,8 @@ class ClaimRequest(BaseModel):
     incident_type: IncidentType
     incident_date: date
     reported_date: date
-    location: str = Field(min_length=3)
-    description: str = Field(min_length=10)
+    location: str = Field(min_length=3, max_length=200)
+    description: str = Field(min_length=10, max_length=1500)
     estimated_damage: float = Field(gt=0)
     damaged_parts: list[str] = []
     third_party_involved: bool = False
@@ -53,3 +53,4 @@ class ClaimResult(BaseModel):
     recommendation: str | None = None
     payout: float = 0.0
     summary: str = ""
+    latency_s: float = 0.0

@@ -8,9 +8,9 @@ allowed-tools: get_claim_history detect_duplicate check_claim_frequency calculat
 ---
 # Fraud detection
 
-You are given a `claim_id` and a `customer_id`. Run these in order.
+You are given a `claim_id`. Run these in order.
 
-1. `get_claim_history(customer_id)` - the customer's earlier claims.
+1. `get_claim_history(claim_id)` - the earlier claims by the customer behind this one.
 2. `detect_duplicate(claim_id)` - another claim on the same vehicle or by the same customer within a
    few days of this incident.
 3. `check_claim_frequency(claim_id)` - claims in the last 12 months.

@@ -60,10 +60,12 @@ def _score(sig: dict) -> tuple[int, str, list[dict]]:
 
 
 @tool
-def get_claim_history(customer_id: str) -> list[dict]:
-    """List all earlier claims by a customer, newest first."""
+def get_claim_history(claim_id: str) -> list[dict]:
+    """List the earlier claims by the customer behind this claim, newest first."""
     with session() as s:
-        rows = s.scalars(select(Claim).where(Claim.customer_id == customer_id.strip().upper()).order_by(Claim.incident_date.desc()))
+        claim, _, _ = claim_bundle(s, claim_id)
+        rows = s.scalars(select(Claim).where(Claim.customer_id == claim.customer_id, Claim.claim_id != claim.claim_id)
+                         .order_by(Claim.incident_date.desc()))
         return [_row(c) for c in rows]
 
 

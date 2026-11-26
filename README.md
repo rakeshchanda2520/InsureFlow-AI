@@ -24,7 +24,7 @@ git clone <repo> && cd insureflow-ai
 pip install -r requirements.txt          # plus Andromeda: pip install -e <andromeda repo>
 cp .env.example .env                     # then add OPENAI_API_KEY (and the Langfuse keys, see below)
 python main.py --reset                   # builds data/insureflow.db from the CSVs
-python main.py --eval                    # runs all 7 demo claims; expect "7/7 scenarios passed"
+python main.py --eval                    # runs the 17 golden claims; expect "17/17 cases passed"
 python main.py                           # the menu
 ```
 
@@ -36,22 +36,21 @@ The database also builds itself on first run, so `--reset` is only needed to sta
 |-----------------|-------|
 | `customers.csv` `vehicles.csv` `policies.csv` | 12 customers with Indian vehicles, IDV and policies (one lapsed, one third-party-only) |
 | `claims.csv` `memory.csv` | 13 earlier claims and the notes remembered about two customers |
-| `demo_claims.json` | the 7 demo submissions and the recommendation each must produce |
+| `golden_claims.json` | the 17 golden submissions, each with the recommendation, payout and fraud level it must produce |
+| `redteam.json` | the 12 adversarial claims, hand-written |
 | `parts.csv` `depreciation.csv` | the Assessment Agent's price list and depreciation bands. Edited by hand, not generated: change a price or a band here and the payout changes. |
 
-## Demo claims
+## Golden claims
 
-Each uses its own customer. Run one twice and the second is flagged as a duplicate; use `--reset`.
+Seventeen submissions with known answers: seven basic ones (`--demo 1` to `7`) and ten multi-factor ones (`8` to `17`).
+Each runs on freshly loaded data. The full list, with what each is expected to produce, is in [Evaluation.md](Evaluation.md).
 
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Clean accident claim (Creta, ₹80,000 claimed) | APPROVE, payout ₹50,450 |
-| 2 | Duplicate of an already settled claim | INVESTIGATE |
-| 3 | Lapsed policy | REJECT |
-| 4 | Third-party-only policy: own damage not covered | REJECT |
-| 5 | Four earlier claims this year, reported 9 days late | INVESTIGATE |
-| 6 | Documents missing, claim 15 days after the policy started | INVESTIGATE |
-| 7 | Driver had been drinking | REJECT |
+| Command | Does |
+|---------|------|
+| `python main.py --eval` | the golden dataset: recommendation, payout and fraud level compared with the expected ones |
+| `python main.py --redteam` | six security controls, then twelve attacks; each is graded by code, not by a model |
+| `python main.py --gate` | both, then the thresholds (accuracy 90%, red team 100%, latency p95 under the budget); exit code 1 if missed |
+| `python main.py --audit <id>` | everything recorded about a claim, oldest first |
 
 ## Observability: Langfuse tracing and evaluation
 
@@ -59,7 +58,7 @@ Create a Langfuse project (cloud or self-hosted), put its three keys in `.env`, 
 With the keys blank it all does nothing.
 
 **Tracing.** One claim is one trace (`thread_id` is the submission id), filterable by customer (`user_id`) and by
-tag (`demo`, `eval`, `manual`). Andromeda records every agent, model, tool and skill load inside it. The
+tag (`demo`, `eval`, `redteam`, `manual`). Andromeda records every agent, model, tool and skill load inside it. The
 application adds what happens around the agents, as events on the same trace:
 
 | Event | When |
@@ -68,22 +67,12 @@ application adds what happens around the agents, as events on the same trace:
 | `human-review` | the reviewer decided: their decision, what the agents said, whether they agreed |
 | `pipeline-incomplete` (ERROR) | the agents did not reach a recommendation |
 
-**Evaluation.** Scores are attached to each agent and appear on the trace as `<agent>:<score>`.
-
-| Score | On | Checks | Kind |
-|-------|----|--------|------|
-| `skill_first` | every agent | the first tool called was `load_skill` | rule |
-| `tool_usage` | every agent | tools were used and returned results | built-in |
-| `grounded` | every agent | every ₹ amount and claim id in the reply appears in a tool result: nothing invented | rule |
-| `hallucination` | every agent | the reply stays faithful to its tool results | LLM judge |
-| `pipeline_complete` | supervisor | all four specialists were routed to | rule |
-| `answer_matches_decision` | supervisor | the answer states the recommendation actually recorded | rule |
-| `human_agreement` | the claim | 1 if the reviewer agreed with the agents | human |
-| `scenario_correct` | the claim | `--eval`: the demo produced its expected recommendation | dataset |
-
-Rules are free and exact; the one LLM judge costs a call per agent run, so `INSUREFLOW_JUDGE_SAMPLE=0.2` judges
-a fifth of them. All of it is in `observability.py`; each agent makes one `observe(...)` call.
-Traces contain the claimant's statement (it is the supervisor's input): mask or drop it before sending real claims.
+**Evaluation.** Scores are attached to each agent and appear on the trace as `<agent>:<score>`. They are checks of
+rules (free, exact), an LLM judge on its own model, a human, and a golden dataset. **[Evaluation.md](Evaluation.md) lists
+every score, how each of the 17 claims is judged, and how it all appears in Langfuse.** All of it is in `observability.py`
+and `evals.py`; each agent makes one `observe(...)` call. The judges cost a call per agent run, so
+`INSUREFLOW_JUDGE_SAMPLE=0.2` judges a fifth of them, on `INSUREFLOW_JUDGE_MODEL`.
+Traces contain the claimant's statement (it is the supervisor's input), with emails and phone numbers masked.
 
 ## How Andromeda is used
 
@@ -92,7 +81,7 @@ Traces contain the claimant's statement (it is the supervisor's input): mask or 
 | **Supervisor** routing to specialists | `supervisor.py`, `route_to_agent` with `invocation_type="task"` |
 | **Skills** (`skills/*/SKILL.md`) | One per agent plus `claim-orchestration` for the supervisor. Each holds the procedure. |
 | **Skill-gated tools** | Tools are registered once but given to no agent directly. An agent receives them only after `load_skill`, via the skill's `allowed-tools`. |
-| **Guardrails** | Supervisor only. Input: prompt injection in the claimant statement blocks the claim before anything is registered. Output: no promises of payment. |
+| **Guardrails** | Supervisor: input (prompt injection blocks the claim before anything is registered) and output (no promises of payment). Specialists: tool results, against text a customer or reviewer once wrote. All of it, and the other layers, in `security.py`. |
 | **Planning** | The supervisor writes and ticks its own todo list. |
 | **Memory** | Within a run, each agent's own message history. Across claims, the `memory` table in SQLite, shown to the Claim Agent via `get_customer`. |
 
@@ -104,17 +93,23 @@ Traces contain the claimant's statement (it is the supervisor's input): mask or 
   read everything else themselves, so no agent re-types an amount or a date.
 - **Every check is recorded** in the `findings` table: the log the reviewer sees.
 - **The agents only recommend.** The final status is set by `finalize_claim` after a human decides.
+- **Tools are scoped to the claim.** An agent can read only the customer and policy its submission names, and can correct a
+  description or location but never the claimed amount.
+- **The record is append-only.** A check that is run again adds a result; `--audit` shows both.
 
 ## Files
 
 ```
-main.py            CLI: menu, report, human review, --eval
+main.py            CLI: menu, report, human review, --eval, --redteam, --gate, --audit
 supervisor.py      builds the Supervisor, process_claim(), finalize_claim()
 observability.py   Langfuse: trace attributes, evaluators, scoring
+evals.py           golden dataset, red team, quality gate, the reviewer-to-golden flywheel
+security.py        the defence layers: prompt rules, guardrails, masking
 agents/            one file per agent: its tools and its definition
 skills/            five SKILL.md files
+Evaluation.md      how every query is evaluated, and how it shows in Langfuse
 database.py        SQLAlchemy tables, CSV loader, shared helpers
-data_generator.py  writes data/*.csv and demo_claims.json (run once, commit the output)
+data_generator.py  writes data/*.csv and golden_claims.json (run once, commit the output)
 schemas.py         Pydantic: ClaimRequest, ClaimResult
 config.py          model, thresholds, rupee formatting
 data/              the dummy data, tracked in git

@@ -1,34 +1,21 @@
 """The Supervisor that coordinates the four agents, and the human-review step that closes a claim."""
-from config import MODEL, ROOT, inr  # first: loads .env before Andromeda is imported
+import time
+
+from config import LATENCY_BUDGET_S, MODEL, ROOT, inr  # first: loads .env before Andromeda is imported
 
 from andromeda import HumanMessage
-from andromeda.config import MiddlewareConfig, SupervisorConfig
-from andromeda.config.config import CompliancePatternsConfig, DataPatternsConfig
+from andromeda.config import SupervisorConfig
 from andromeda.core.middleware.skills import SkillsMiddleware
 from andromeda.core.supervisor import Supervisor
 
 from agents import assessment_agent, claim_agent, fraud_agent, policy_agent
 from database import (Customer, claim_bundle, claim_for_submission, get_findings, remember, save_finding, session,
-                      stage_submission)
+                      set_outcome, stage_submission)
 from observability import OUTCOME, SUPERVISOR, event, observe, run_config, score_trace
 from schemas import ClaimRequest, ClaimResult
+from security import BLOCKED, SANDWICH, SUPERVISOR_RULES, supervisor_middleware, untrusted
 
-BLOCKED = "This claim was blocked by the safety guardrails and needs manual handling."
-_NEVER = r"(?!)"  # a pattern that matches nothing
-
-# The default data patterns block any text holding a phone number or a long digit run, and the default
-# compliance list bans the phrase "no exclusions", which the policy check legitimately produces.
-GUARDRAILS = MiddlewareConfig.GuardrailOptions(
-    input=True,
-    output=True,
-    data_patterns=DataPatternsConfig(email=_NEVER, ssn=_NEVER, phone=_NEVER, credit_card=_NEVER),
-    compliance_patterns=CompliancePatternsConfig(patterns=[
-        r"\bguaranteed\s+(approval|payout|settlement)\b", r"\bcannot\s+be\s+denied\b", r"\bwill\s+be\s+(approved|paid)\b",
-    ]),
-    blocked_message=BLOCKED,
-)
-
-PROMPT = """You run motor-insurance claim processing for InsureFlow AI. Load the claim-orchestration skill
+PROMPT = f"""You run motor-insurance claim processing for InsureFlow AI. Load the claim-orchestration skill
 first and follow it exactly. You hold no claim data yourself: every fact comes from your specialists.
 
 - claim_agent: finds the customer and policy and registers the claim (returns the claim_id).
@@ -36,7 +23,9 @@ first and follow it exactly. You hold no claim data yourself: every fact comes f
 - fraud_agent: duplicate claims, claim history and the fraud score.
 - assessment_agent: damage estimate, depreciation, deductible, payout and the recommendation.
 
-The specialists unlock their own tools by loading their skills; you never call those tools."""
+The specialists unlock their own tools by loading their skills; you never call those tools.
+
+{SUPERVISOR_RULES}"""
 
 
 def build_supervisor() -> Supervisor:
@@ -45,7 +34,7 @@ def build_supervisor() -> Supervisor:
     config = SupervisorConfig(
         name="supervisor", model=MODEL, prompt=PROMPT, enable_planning=True, allowed_route_types=["task"],
         recursion_limit=200,  # each loop crosses several middleware nodes
-        middleware=MiddlewareConfig(enabled=True, tool_error_handler=True, guardrails=GUARDRAILS, custom=[skills]),
+        middleware=supervisor_middleware(skills),
     )
     agents = [claim_agent.build(), policy_agent.build(), fraud_agent.build(), assessment_agent.build()]
     return observe(Supervisor(agents=agents, config=config), SUPERVISOR)
@@ -54,31 +43,37 @@ def build_supervisor() -> Supervisor:
 def process_claim(req: ClaimRequest, source: str = "manual") -> ClaimResult:
     """Run one submission through the supervisor. Ends with a recommendation awaiting a human."""
     submission_id = stage_submission(req)
-    # The claimant's own words are included so the input guardrails scan them; the rest is staged in SQLite.
-    request = (f"New motor claim submission {submission_id}. Customer {req.customer_id}, policy {req.policy_id}. "
-               f"Incident: {req.incident_type} on {req.incident_date} at {req.location}. "
-               f"Claimant statement: {req.description}")
+    # Everything a customer typed goes between tags, so the model and the input guardrails can tell it from instructions.
+    request = (f'<submission id="{submission_id}" customer="{req.customer_id}" policy="{req.policy_id}" '
+               f'type="{req.incident_type}" date="{req.incident_date}">\n'
+               f"<location>{untrusted(req.location)}</location>\n"
+               f"<claimant_statement>\n{untrusted(req.description)}\n</claimant_statement>\n</submission>\n{SANDWICH}")
     # The plan is left empty on purpose: supervise() appends todo reminders as later human messages, and the
     # input guardrail only scans the latest one, so a seeded plan would hide the claimant's text from it.
     state = {"messages": [HumanMessage(content=request)], "plan": []}
+    started = time.perf_counter()
     reply = str(build_supervisor().supervise(state, **run_config(req.customer_id, submission_id, source))["messages"][-1].content)
+    latency = time.perf_counter() - started
+    score_trace(submission_id, "latency_budget", latency <= LATENCY_BUDGET_S, f"{latency:.0f}s against a {LATENCY_BUDGET_S:.0f}s budget")
 
     claim_id = claim_for_submission(submission_id)
     if reply == BLOCKED:
         event("guardrail-blocked", submission_id, level="WARNING", claim_registered=claim_id is not None)
     if claim_id is None:
-        return ClaimResult(submission_id=submission_id, claim_id=None,
-                           status="BLOCKED" if reply == BLOCKED else "NOT_REGISTERED", summary=reply)
+        status = "BLOCKED" if reply == BLOCKED else "NOT_REGISTERED"
+        set_outcome(submission_id, status)
+        return ClaimResult(submission_id=submission_id, claim_id=None, status=status, summary=reply, latency_s=latency)
 
     with session() as s:
         claim, _, _ = claim_bundle(s, claim_id)
-    # If the output guardrail replaced the reply, the recorded decision is still the source of truth.
+    set_outcome(submission_id, claim.status)
     if claim.status != "PENDING_REVIEW":
         event("pipeline-incomplete", submission_id, level="ERROR", status=claim.status)
+    # If the output guardrail replaced the reply, the recorded decision is still the source of truth.
     decision = next((f for f in get_findings(claim_id) if f.name == "decision"), None)
     summary = decision.summary + " " + " ".join(decision.data["reasons"]) if reply == BLOCKED and decision else reply
-    return ClaimResult(submission_id=submission_id, claim_id=claim_id, status=claim.status,
-                       recommendation=claim.recommendation, payout=claim.payout, summary=summary)
+    return ClaimResult(submission_id=submission_id, claim_id=claim_id, status=claim.status, recommendation=claim.recommendation,
+                       payout=claim.payout, summary=summary, latency_s=latency)
 
 
 def finalize_claim(claim_id: str, decision: str, note: str = "") -> str:

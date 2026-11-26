@@ -59,45 +59,97 @@ MEMORY = {
     "CUST1005": (date(2026, 9, 19), "Four claims in under 12 months (one rejected). Check frequency and reporting delay on the next one."),
 }
 
-# (title, expected recommendation, submission). Each uses its own customer, so they never trip the
-# duplicate check against one another.
+THEFT_DOCS = ["claim_form", "rc_copy", "policy_copy", "fir", "car_keys", "non_traceable_report"]
+
+# The golden dataset: (title, expected recommendation, expected payout, expected fraud level, submission).
+# Every case is run on freshly loaded data, so cases never affect one another. The payout of an INVESTIGATE case
+# is what would be paid if it were cleared. Expected values were produced by running the real tools.
 DEMOS = [
-    ("Clean accident claim", "APPROVE", dict(
+    ("Clean accident claim", "APPROVE", 50450, "low", dict(
         customer_id="CUST1001", policy_id="MOT2026001", incident_type="accident", incident_date="2026-11-20",
         reported_date="2026-11-22", location="Baner Road, Pune", estimated_damage=80000,
         description="Hit a stationary divider while avoiding a stray dog; front bumper, bonnet and headlight damaged.",
         damaged_parts=["front bumper", "bonnet", "headlight"], documents=DOCS_ALL)),
-    ("Duplicate of an already settled claim", "INVESTIGATE", dict(
+    ("Duplicate of an already settled claim", "INVESTIGATE", 9000, "medium", dict(
         customer_id="CUST1002", policy_id="MOT2026002", incident_type="accident", incident_date="2026-11-12",
         reported_date="2026-11-14", location="Outer Ring Road, Bengaluru", estimated_damage=15500,
         description="Collided with an auto-rickshaw at a junction; front bumper cracked.",
         damaged_parts=["front bumper"], documents=DOCS_ALL)),
-    ("Lapsed policy", "REJECT", dict(
+    ("Lapsed policy", "REJECT", 0, "low", dict(
         customer_id="CUST1003", policy_id="MOT2026003", incident_type="accident", incident_date="2026-11-18",
         reported_date="2026-11-19", location="Ring Road, Delhi", estimated_damage=46000,
         description="Side-swiped by a truck; left front door and side mirror damaged.",
         damaged_parts=["front door", "side mirror"], documents=DOCS_ALL)),
-    ("Third-party-only policy (own damage not covered)", "REJECT", dict(
+    ("Third-party-only policy (own damage not covered)", "REJECT", 0, "low", dict(
         customer_id="CUST1004", policy_id="MOT2026004", incident_type="accident", incident_date="2026-11-17",
         reported_date="2026-11-18", location="Western Express Highway, Mumbai", estimated_damage=31000,
         description="Reversed into a pillar in a parking lot; rear bumper and tail lamp damaged.",
         damaged_parts=["rear bumper", "tail lamp"], documents=DOCS_ALL)),
-    ("Frequent claimant, reported late", "INVESTIGATE", dict(
+    ("Frequent claimant, reported late", "INVESTIGATE", 18850, "medium", dict(
         customer_id="CUST1005", policy_id="MOT2026005", incident_type="accident", incident_date="2026-11-16",
         reported_date="2026-11-25", location="SG Highway, Ahmedabad", estimated_damage=34000,
         description="Rear bumper and tail lamp damaged in a parking-lot collision.",
         damaged_parts=["rear bumper", "tail lamp"], documents=DOCS_ALL)),
-    ("Documents missing, policy only 15 days old", "INVESTIGATE", dict(
+    ("Documents missing, policy only 15 days old", "INVESTIGATE", 54250, "low", dict(
         customer_id="CUST1006", policy_id="MOT2026006", incident_type="accident", incident_date="2026-11-20",
         reported_date="2026-11-21", location="Anna Salai, Chennai", estimated_damage=58000, third_party_involved=True,
         description="Hit by a two-wheeler while changing lanes; rear door and bumper damaged.",
         damaged_parts=["rear door", "rear bumper"], documents=["claim_form", "rc_copy", "policy_copy", "photos"])),
-    ("Drunk-driving exclusion", "REJECT", dict(
+    ("Drunk-driving exclusion", "REJECT", 0, "low", dict(
         customer_id="CUST1007", policy_id="MOT2026007", incident_type="accident", incident_date="2026-11-19",
         reported_date="2026-11-20", location="Jubilee Hills, Hyderabad", estimated_damage=36000, alcohol_involved=True,
         description="Lost control after a night out and hit a tree; bonnet and radiator damaged.",
         damaged_parts=["bonnet", "radiator"], documents=DOCS_ALL)),
 ]
+
+COMPLEX = [
+    ("Stolen car paid as a total loss", "APPROVE", 989000, "low", dict(
+        customer_id="CUST1001", policy_id="MOT2026001", incident_type="theft", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Koregaon Park, Pune", estimated_damage=990000,
+        description="Car stolen overnight from the society parking lot.", damaged_parts=[], documents=THEFT_DOCS)),
+    ("Theft with the FIR and keys missing", "INVESTIGATE", 989000, "low", dict(
+        customer_id="CUST1001", policy_id="MOT2026001", incident_type="theft", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Koregaon Park, Pune", estimated_damage=990000,
+        description="Car stolen overnight from the society parking lot.", damaged_parts=[],
+        documents=["claim_form", "rc_copy", "policy_copy"])),
+    ("Zero-depreciation add-on waives all but the tyre", "APPROVE", 26125, "low", dict(
+        customer_id="CUST1006", policy_id="MOT2026006", incident_type="accident", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="OMR, Chennai", estimated_damage=34000,
+        description="Scraped a divider; front bumper cracked and a tyre burst.",
+        damaged_parts=["front bumper", "tyre"], documents=DOCS_ALL)),
+    ("Duplicate, frequency and late report add up to high fraud", "INVESTIGATE", 25750, "high", dict(
+        customer_id="CUST1005", policy_id="MOT2026005", incident_type="accident", incident_date="2026-09-20",
+        reported_date="2026-11-25", location="SG Highway, Ahmedabad", estimated_damage=33000,
+        description="Bonnet dented in a parking lot collision.", damaged_parts=["bonnet"], documents=DOCS_ALL)),
+    ("Policy belongs to someone else", "REJECT", 0, "low", dict(
+        customer_id="CUST1001", policy_id="MOT2026002", incident_type="accident", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Pune", estimated_damage=20000,
+        description="Rear bumper damaged in a minor collision.", damaged_parts=["rear bumper"], documents=DOCS_ALL)),
+    ("Fire claim without the fire-brigade report", "INVESTIGATE", 32450, "low", dict(
+        customer_id="CUST1007", policy_id="MOT2026007", incident_type="fire", incident_date="2026-11-23",
+        reported_date="2026-11-24", location="Madhapur, Hyderabad", estimated_damage=60000,
+        description="Engine caught fire on the road; bonnet, headlight and radiator burnt.",
+        damaged_parts=["bonnet", "headlight", "radiator"], documents=DOCS_ALL)),
+    ("Inflated claim with a part that is not on the price list", "APPROVE", 9000, "low", dict(
+        customer_id="CUST1002", policy_id="MOT2026002", incident_type="accident", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Indiranagar, Bengaluru", estimated_damage=60000,
+        description="Hit a pole; front bumper cracked and the sunroof shattered.",
+        damaged_parts=["front bumper", "sunroof"], documents=DOCS_ALL)),
+    ("Theft on a third-party-only policy", "REJECT", 0, "low", dict(
+        customer_id="CUST1004", policy_id="MOT2026004", incident_type="theft", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Bandra, Mumbai", estimated_damage=1085000,
+        description="Car stolen from outside the office.", damaged_parts=[], documents=THEFT_DOCS)),
+    ("Declared invalid licence", "REJECT", 0, "low", dict(
+        customer_id="CUST1008", policy_id="MOT2026008", incident_type="accident", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Delhi", estimated_damage=20000, driver_licence_valid=False,
+        description="Collided with a bike at a signal; front bumper damaged.", damaged_parts=["front bumper"], documents=DOCS_ALL)),
+    ("Cab use that only the statement reveals", "REJECT", 0, "low", dict(
+        customer_id="CUST1009", policy_id="MOT2026009", incident_type="accident", incident_date="2026-11-24",
+        reported_date="2026-11-25", location="Mumbai", estimated_damage=20000,
+        description="I was driving as an Ola cab with a passenger when a bus hit the rear; rear bumper cracked.",
+        damaged_parts=["rear bumper"], documents=DOCS_ALL)),
+]
+MODEL_DEPENDENT = {"Cab use that only the statement reveals"}  # only a model that reads the statement can get this one
 
 
 def idv(price: float, purchased: date, on: date) -> float:
@@ -160,9 +212,10 @@ def main() -> None:
     DATA.mkdir(exist_ok=True)
     for name, rows in [("customers", customers), ("vehicles", vehicles), ("policies", policies), ("claims", claims), ("memory", memory)]:
         write_csv(name, rows)
-    (DATA / "demo_claims.json").write_text(
-        json.dumps([{"title": t, "expected": e, "claim": c} for t, e, c in DEMOS], indent=2), encoding="utf-8")
-    print(f"Wrote {len(customers)} customers, {len(claims)} claims and {len(DEMOS)} demo claims to {DATA}")
+    golden = [{"title": t, "expected": e, "payout": pay, "fraud_level": fraud, "claim": c, **({"model_dependent": True} if t in MODEL_DEPENDENT else {})}
+              for t, e, pay, fraud, c in DEMOS + COMPLEX]
+    (DATA / "golden_claims.json").write_text(json.dumps(golden, indent=2), encoding="utf-8")
+    print(f"Wrote {len(customers)} customers, {len(claims)} claims and {len(golden)} golden cases to {DATA}")
 
 
 if __name__ == "__main__":

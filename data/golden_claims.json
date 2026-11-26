@@ -1,0 +1,465 @@
+[
+  {
+    "title": "Clean accident claim",
+    "expected": "APPROVE",
+    "payout": 50450,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1001",
+      "policy_id": "MOT2026001",
+      "incident_type": "accident",
+      "incident_date": "2026-11-20",
+      "reported_date": "2026-11-22",
+      "location": "Baner Road, Pune",
+      "estimated_damage": 80000,
+      "description": "Hit a stationary divider while avoiding a stray dog; front bumper, bonnet and headlight damaged.",
+      "damaged_parts": [
+        "front bumper",
+        "bonnet",
+        "headlight"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Duplicate of an already settled claim",
+    "expected": "INVESTIGATE",
+    "payout": 9000,
+    "fraud_level": "medium",
+    "claim": {
+      "customer_id": "CUST1002",
+      "policy_id": "MOT2026002",
+      "incident_type": "accident",
+      "incident_date": "2026-11-12",
+      "reported_date": "2026-11-14",
+      "location": "Outer Ring Road, Bengaluru",
+      "estimated_damage": 15500,
+      "description": "Collided with an auto-rickshaw at a junction; front bumper cracked.",
+      "damaged_parts": [
+        "front bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Lapsed policy",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1003",
+      "policy_id": "MOT2026003",
+      "incident_type": "accident",
+      "incident_date": "2026-11-18",
+      "reported_date": "2026-11-19",
+      "location": "Ring Road, Delhi",
+      "estimated_damage": 46000,
+      "description": "Side-swiped by a truck; left front door and side mirror damaged.",
+      "damaged_parts": [
+        "front door",
+        "side mirror"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Third-party-only policy (own damage not covered)",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1004",
+      "policy_id": "MOT2026004",
+      "incident_type": "accident",
+      "incident_date": "2026-11-17",
+      "reported_date": "2026-11-18",
+      "location": "Western Express Highway, Mumbai",
+      "estimated_damage": 31000,
+      "description": "Reversed into a pillar in a parking lot; rear bumper and tail lamp damaged.",
+      "damaged_parts": [
+        "rear bumper",
+        "tail lamp"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Frequent claimant, reported late",
+    "expected": "INVESTIGATE",
+    "payout": 18850,
+    "fraud_level": "medium",
+    "claim": {
+      "customer_id": "CUST1005",
+      "policy_id": "MOT2026005",
+      "incident_type": "accident",
+      "incident_date": "2026-11-16",
+      "reported_date": "2026-11-25",
+      "location": "SG Highway, Ahmedabad",
+      "estimated_damage": 34000,
+      "description": "Rear bumper and tail lamp damaged in a parking-lot collision.",
+      "damaged_parts": [
+        "rear bumper",
+        "tail lamp"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Documents missing, policy only 15 days old",
+    "expected": "INVESTIGATE",
+    "payout": 54250,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1006",
+      "policy_id": "MOT2026006",
+      "incident_type": "accident",
+      "incident_date": "2026-11-20",
+      "reported_date": "2026-11-21",
+      "location": "Anna Salai, Chennai",
+      "estimated_damage": 58000,
+      "third_party_involved": true,
+      "description": "Hit by a two-wheeler while changing lanes; rear door and bumper damaged.",
+      "damaged_parts": [
+        "rear door",
+        "rear bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "policy_copy",
+        "photos"
+      ]
+    }
+  },
+  {
+    "title": "Drunk-driving exclusion",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1007",
+      "policy_id": "MOT2026007",
+      "incident_type": "accident",
+      "incident_date": "2026-11-19",
+      "reported_date": "2026-11-20",
+      "location": "Jubilee Hills, Hyderabad",
+      "estimated_damage": 36000,
+      "alcohol_involved": true,
+      "description": "Lost control after a night out and hit a tree; bonnet and radiator damaged.",
+      "damaged_parts": [
+        "bonnet",
+        "radiator"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Stolen car paid as a total loss",
+    "expected": "APPROVE",
+    "payout": 989000,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1001",
+      "policy_id": "MOT2026001",
+      "incident_type": "theft",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Koregaon Park, Pune",
+      "estimated_damage": 990000,
+      "description": "Car stolen overnight from the society parking lot.",
+      "damaged_parts": [],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "policy_copy",
+        "fir",
+        "car_keys",
+        "non_traceable_report"
+      ]
+    }
+  },
+  {
+    "title": "Theft with the FIR and keys missing",
+    "expected": "INVESTIGATE",
+    "payout": 989000,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1001",
+      "policy_id": "MOT2026001",
+      "incident_type": "theft",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Koregaon Park, Pune",
+      "estimated_damage": 990000,
+      "description": "Car stolen overnight from the society parking lot.",
+      "damaged_parts": [],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "policy_copy"
+      ]
+    }
+  },
+  {
+    "title": "Zero-depreciation add-on waives all but the tyre",
+    "expected": "APPROVE",
+    "payout": 26125,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1006",
+      "policy_id": "MOT2026006",
+      "incident_type": "accident",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "OMR, Chennai",
+      "estimated_damage": 34000,
+      "description": "Scraped a divider; front bumper cracked and a tyre burst.",
+      "damaged_parts": [
+        "front bumper",
+        "tyre"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Duplicate, frequency and late report add up to high fraud",
+    "expected": "INVESTIGATE",
+    "payout": 25750,
+    "fraud_level": "high",
+    "claim": {
+      "customer_id": "CUST1005",
+      "policy_id": "MOT2026005",
+      "incident_type": "accident",
+      "incident_date": "2026-09-20",
+      "reported_date": "2026-11-25",
+      "location": "SG Highway, Ahmedabad",
+      "estimated_damage": 33000,
+      "description": "Bonnet dented in a parking lot collision.",
+      "damaged_parts": [
+        "bonnet"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Policy belongs to someone else",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1001",
+      "policy_id": "MOT2026002",
+      "incident_type": "accident",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Pune",
+      "estimated_damage": 20000,
+      "description": "Rear bumper damaged in a minor collision.",
+      "damaged_parts": [
+        "rear bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Fire claim without the fire-brigade report",
+    "expected": "INVESTIGATE",
+    "payout": 32450,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1007",
+      "policy_id": "MOT2026007",
+      "incident_type": "fire",
+      "incident_date": "2026-11-23",
+      "reported_date": "2026-11-24",
+      "location": "Madhapur, Hyderabad",
+      "estimated_damage": 60000,
+      "description": "Engine caught fire on the road; bonnet, headlight and radiator burnt.",
+      "damaged_parts": [
+        "bonnet",
+        "headlight",
+        "radiator"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Inflated claim with a part that is not on the price list",
+    "expected": "APPROVE",
+    "payout": 9000,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1002",
+      "policy_id": "MOT2026002",
+      "incident_type": "accident",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Indiranagar, Bengaluru",
+      "estimated_damage": 60000,
+      "description": "Hit a pole; front bumper cracked and the sunroof shattered.",
+      "damaged_parts": [
+        "front bumper",
+        "sunroof"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Theft on a third-party-only policy",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1004",
+      "policy_id": "MOT2026004",
+      "incident_type": "theft",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Bandra, Mumbai",
+      "estimated_damage": 1085000,
+      "description": "Car stolen from outside the office.",
+      "damaged_parts": [],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "policy_copy",
+        "fir",
+        "car_keys",
+        "non_traceable_report"
+      ]
+    }
+  },
+  {
+    "title": "Declared invalid licence",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1008",
+      "policy_id": "MOT2026008",
+      "incident_type": "accident",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Delhi",
+      "estimated_damage": 20000,
+      "driver_licence_valid": false,
+      "description": "Collided with a bike at a signal; front bumper damaged.",
+      "damaged_parts": [
+        "front bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    }
+  },
+  {
+    "title": "Cab use that only the statement reveals",
+    "expected": "REJECT",
+    "payout": 0,
+    "fraud_level": "low",
+    "claim": {
+      "customer_id": "CUST1009",
+      "policy_id": "MOT2026009",
+      "incident_type": "accident",
+      "incident_date": "2026-11-24",
+      "reported_date": "2026-11-25",
+      "location": "Mumbai",
+      "estimated_damage": 20000,
+      "description": "I was driving as an Ola cab with a passenger when a bus hit the rear; rear bumper cracked.",
+      "damaged_parts": [
+        "rear bumper"
+      ],
+      "documents": [
+        "claim_form",
+        "rc_copy",
+        "driving_licence",
+        "policy_copy",
+        "photos",
+        "repair_estimate"
+      ]
+    },
+    "model_dependent": true
+  }
+]

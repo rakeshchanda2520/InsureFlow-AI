@@ -1,8 +1,11 @@
 """InsureFlow AI: command-line entry point.
 
     python main.py              interactive menu
-    python main.py --demo 3     run demo claim 3, then ask for the reviewer's decision
-    python main.py --eval       run every demo claim and check each recommendation (resets the data first)
+    python main.py --demo 3     run golden claim 3, then ask for the reviewer's decision
+    python main.py --eval       run the golden dataset and compare recommendation, payout and fraud level
+    python main.py --redteam    attack the system with adversarial claims
+    python main.py --gate       run both and exit 1 unless the quality thresholds are met (for CI)
+    python main.py --audit ID   the full recorded history of a claim or submission
     python main.py --reset      rebuild the SQLite database from data/*.csv
 """
 import argparse
@@ -15,8 +18,9 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from agents.assessment_agent import PARTS
-from database import Claim, Customer, claim_bundle, demo_claims, get_findings, init_db, session
-from observability import flush, score_trace
+from database import Claim, Customer, Submission, claim_bundle, get_findings, golden_claims, init_db, session
+from evals import add_golden, gate, run_golden, run_redteam
+from observability import OUTCOME, flush
 from schemas import DOCS_ALL, ClaimRequest
 from supervisor import finalize_claim, process_claim
 
@@ -26,7 +30,7 @@ MENU = """
 ==============================================
   InsureFlow AI - motor claims processing
 ==============================================
-  1) Run a demo claim
+  1) Run a golden claim
   2) Submit a new claim
   3) Show a claim report
   4) List claims
@@ -86,6 +90,11 @@ def review(claim_id: str) -> None:
         return
     notification = finalize_claim(claim_id, REVIEW[choice], ask("Reviewer note (optional)"))
     print(f"\nClaim {REVIEW[choice]}. Notification sent to the customer:\n  {notification}")
+    with session() as s:
+        recommended = claim_bundle(s, claim_id)[0].recommendation
+    if OUTCOME.get(recommended) != REVIEW[choice] and ask("The agents recommended differently. Save this as a golden test case? (y/n)", "n").lower() == "y":
+        add_golden(claim_id, REVIEW[choice])
+        print("Saved to data/golden_claims.json: it now runs with --eval.")
 
 
 def run(req: ClaimRequest, source: str = "manual") -> None:
@@ -107,38 +116,38 @@ def run(req: ClaimRequest, source: str = "manual") -> None:
 
 
 def choose_demo(number: int | None = None) -> None:
-    demos = demo_claims()
+    cases = golden_claims()
     if number is None:
         print()
-        for n, demo in enumerate(demos, 1):
-            print(f"  {n}) {demo['title']}  (expect {demo['expected']})")
-        number = int(ask("Demo number") or 0)
-    if not 1 <= number <= len(demos):
-        print("No such demo.")
+        for n, case in enumerate(cases, 1):
+            print(f"  {n:>2}) {case['title']}  (expect {case['expected']})")
+        number = int(ask("Case number") or 0)
+    if not 1 <= number <= len(cases):
+        print("No such case.")
         return
-    demo = demos[number - 1]
-    print(f"\nDemo: {demo['title']}\n  {demo['claim']['description']}")
-    run(ClaimRequest(**demo["claim"]), source="demo")
+    case = cases[number - 1]
+    print(f"\nCase: {case['title']}\n  {case['claim']['description']}")
+    run(ClaimRequest(**case["claim"]), source="demo")
 
 
-def evaluate() -> None:
-    """Run every demo claim with no human step and check each recommendation against the expected one."""
-    init_db(reset=True)
-    demos = demo_claims()
-    passed = 0
-    print(f"\n{'#':3}{'SCENARIO':50}{'EXPECTED':13}{'GOT':13}RESULT")
-    for n, demo in enumerate(demos, 1):
-        try:
-            result = process_claim(ClaimRequest(**demo["claim"]), source="eval")
-        except Exception as exc:
-            print(f"{n:<3}{demo['title'][:48]:50}{demo['expected']:13}{'error':13}FAIL  {type(exc).__name__}: {exc}")
-            continue
-        ok = result.recommendation == demo["expected"]
-        passed += ok
-        score_trace(result.submission_id, "scenario_correct", ok, f"expected {demo['expected']}, got {result.recommendation}")
-        print(f"{n:<3}{demo['title'][:48]:50}{demo['expected']:13}{str(result.recommendation):13}{'PASS' if ok else 'FAIL'}")
-    print(f"\n{passed}/{len(demos)} scenarios passed")
-    flush()
+def audit(ref: str) -> None:
+    """Everything recorded about a claim, oldest first, including results that were later superseded."""
+    ref = ref.strip()
+    with session() as s:
+        sub = s.get(Submission, ref) or next(iter(s.scalars(select(Submission).where(Submission.claim_id == ref.upper()))), None)
+        if sub is None:
+            return print("No such claim or submission.")
+        print(f"\nSUBMISSION {sub.submission_id}  received {sub.created_at:%Y-%m-%d %H:%M:%S}  outcome: {sub.outcome}")
+        print(f"  submitted: {sub.payload}")
+        claim = s.get(Claim, sub.claim_id) if sub.claim_id else None
+    if claim is None:
+        return print("  No claim was registered.")
+    print(f"\nCLAIM {claim.claim_id}  status {claim.status}  recommended {claim.recommendation}  payout {inr(claim.payout)}")
+    print(f"  reviewer: {claim.reviewer_decision or '-'} {claim.reviewer_note or ''}")
+    current = {f.id for f in get_findings(claim.claim_id)}
+    print(f"\n{'TIME':10}{'AGENT':18}{'CHECK':26}{'STATUS':8}SUMMARY")
+    for f in get_findings(claim.claim_id, history=True):
+        print(f"{f.created_at:%H:%M:%S}  {f.agent:18}{f.name:26}{f.status:8}{f.summary}" + ("" if f.id in current else "  (superseded)"))
 
 
 def _documents(text: str) -> list[str]:
@@ -179,14 +188,23 @@ def list_claims() -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="InsureFlow AI")
-    parser.add_argument("--demo", type=int, help="run demo claim N")
-    parser.add_argument("--eval", action="store_true", help="run every demo claim and check the recommendations")
+    parser.add_argument("--demo", type=int, help="run golden claim N")
+    parser.add_argument("--eval", action="store_true", help="run the golden dataset")
+    parser.add_argument("--redteam", action="store_true", help="run the adversarial claims")
+    parser.add_argument("--gate", action="store_true", help="golden + red team, exit 1 if a threshold is missed")
+    parser.add_argument("--audit", metavar="ID", help="show the full history of a claim or submission")
     parser.add_argument("--reset", action="store_true", help="rebuild the database from data/*.csv")
     args = parser.parse_args()
 
     init_db(reset=args.reset)
+    if args.audit:
+        return audit(args.audit)
+    if args.gate:
+        sys.exit(0 if gate({**run_golden(), **run_redteam()}) else 1)
     if args.eval:
-        return evaluate()
+        return run_golden()
+    if args.redteam:
+        return run_redteam()
     if args.reset:
         return print("Database reset.")
     if args.demo:
